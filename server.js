@@ -90,9 +90,9 @@ app.get('/api/availability', async (req, res) => {
 // Create job
 app.post('/api/jobs', async (req, res) => {
   try {
-    const { email, phone, address, scheduled_date, scheduled_time, items, total_price, notes } = req.body;
+    const { name, email, phone, address, scheduled_date, scheduled_time, items, total_price, notes } = req.body;
 
-    if (!email || !phone || !address || !scheduled_date || !scheduled_time || !items || !total_price) {
+    if (!name || !email || !phone || !address || !scheduled_date || !scheduled_time || !items || !total_price) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -109,7 +109,7 @@ app.post('/api/jobs', async (req, res) => {
     if (!customer) {
       const { data: newCustomer, error: createError } = await supabase
         .from('customers')
-        .insert({ email, phone, address })
+        .insert({ name, email, phone, address })
         .select('id')
         .single();
 
@@ -121,6 +121,9 @@ app.post('/api/jobs', async (req, res) => {
       .from('jobs')
       .insert({
         customer_id: customer.id,
+        customer_name: name,
+        email: email,
+        phone: phone,
         scheduled_date,
         scheduled_time,
         items,
