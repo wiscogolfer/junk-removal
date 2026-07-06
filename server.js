@@ -6,12 +6,18 @@ const { createClient } = require('@supabase/supabase-js');
 dotenv.config();
 
 const app = express();
+
+// CORS configuration - MUST come before routes
 app.use(cors({
-     origin: '*',
-     methods: ['GET', 'POST', 'PATCH', 'OPTIONS'],
-     allowedHeaders: ['Content-Type', 'Authorization']
-   }));
-   app.options('*', cors());
+  origin: '*',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Handle preflight requests
+app.options('*', cors());
+
 app.use(express.json());
 
 // Supabase
@@ -49,7 +55,6 @@ app.get('/api/availability', async (req, res) => {
     const { date } = req.query;
     if (!date) return res.status(400).json({ error: 'Date required' });
 
-    // Check blocked times
     const { data: blocked, error: blockError } = await supabase
       .from('blocked_time')
       .select('blocked_time_start, blocked_time_end')
@@ -57,7 +62,6 @@ app.get('/api/availability', async (req, res) => {
 
     if (blockError) throw blockError;
 
-    // Check existing jobs
     const { data: jobs, error: jobError } = await supabase
       .from('jobs')
       .select('scheduled_time')
@@ -66,14 +70,12 @@ app.get('/api/availability', async (req, res) => {
 
     if (jobError) throw jobError;
 
-    // All time slots (30-min intervals)
     const allSlots = [];
     for (let h = 8; h < 17; h++) {
       allSlots.push(`${String(h).padStart(2, '0')}:00`);
       allSlots.push(`${String(h).padStart(2, '0')}:30`);
     }
 
-    // Remove blocked/booked slots
     const bookedTimes = jobs.map(j => j.scheduled_time);
     const available = allSlots.filter(slot => !bookedTimes.includes(slot));
 
@@ -93,7 +95,6 @@ app.post('/api/jobs', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Check if customer exists, create if not
     let { data: customer, error: customerError } = await supabase
       .from('customers')
       .select('id')
@@ -115,7 +116,6 @@ app.post('/api/jobs', async (req, res) => {
       customer = newCustomer;
     }
 
-    // Create job
     const { data: job, error: jobError } = await supabase
       .from('jobs')
       .insert({
@@ -139,7 +139,7 @@ app.post('/api/jobs', async (req, res) => {
   }
 });
 
-// Get job by ID (for customer tracking)
+// Get job by ID
 app.get('/api/jobs/:id', async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -155,7 +155,7 @@ app.get('/api/jobs/:id', async (req, res) => {
   }
 });
 
-// Admin: Get all jobs (requires auth token in real app)
+// Admin: Get all jobs
 app.get('/api/admin/jobs', async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -187,7 +187,6 @@ app.patch('/api/admin/jobs/:id', async (req, res) => {
       .single();
 
     if (error) throw error;
-
     res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -203,7 +202,6 @@ app.post('/api/admin/pricing', async (req, res) => {
       return res.status(400).json({ error: 'item_type and price required' });
     }
 
-    // Upsert: update if exists, insert if not
     const { data, error } = await supabase
       .from('pricing_items')
       .upsert({ item_type, price, category, description })
