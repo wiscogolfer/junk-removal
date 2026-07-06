@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const { createClient } = require('@supabase/supabase-js');
-const twilio = require('twilio');
 
 dotenv.config();
 
@@ -15,13 +14,6 @@ const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
-
-// Twilio (optional)
-const twilioClient = process.env.TWILIO_ACCOUNT_SID
-  ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
-  : null;
-
-const TWILIO_FROM = process.env.TWILIO_PHONE_NUMBER;
 
 // ========== ROUTES ==========
 
@@ -135,23 +127,6 @@ app.post('/api/jobs', async (req, res) => {
 
     if (jobError) throw jobError;
 
-    // Send SMS notification to you
-    if (twilioClient && TWILIO_FROM) {
-      const itemsText = items.map(i => `${i.qty}x ${i.item_type}`).join(', ');
-      const message = `New junk removal booking: ${scheduled_date} @ ${scheduled_time}\nCustomer: ${email} | ${phone}\nItems: ${itemsText}\nTotal: $${total_price.toFixed(2)}`;
-
-      try {
-        await twilioClient.messages.create({
-          body: message,
-          from: TWILIO_FROM,
-          to: process.env.ADMIN_PHONE // Your phone number
-        });
-      } catch (smsErr) {
-        console.error('SMS error:', smsErr);
-        // Don't fail the booking if SMS fails
-      }
-    }
-
     res.status(201).json(job);
   } catch (err) {
     console.error('Job creation error:', err);
@@ -208,27 +183,6 @@ app.patch('/api/admin/jobs/:id', async (req, res) => {
 
     if (error) throw error;
 
-    // Send SMS to customer on completion
-    if (status === 'completed' && twilioClient && TWILIO_FROM) {
-      const { data: customer, error: custError } = await supabase
-        .from('customers')
-        .select('phone')
-        .eq('id', data.customer_id)
-        .single();
-
-      if (!custError && customer) {
-        try {
-          await twilioClient.messages.create({
-            body: `Your junk removal is complete! Total: $${data.total_price.toFixed(2)}. Payment can be made via Venmo or cash on delivery.`,
-            from: TWILIO_FROM,
-            to: customer.phone
-          });
-        } catch (smsErr) {
-          console.error('Completion SMS error:', smsErr);
-        }
-      }
-    }
-
     res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -259,7 +213,7 @@ app.post('/api/admin/pricing', async (req, res) => {
 });
 
 // ========== START SERVER ==========
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`Junk removal server running on port ${PORT}`);
 });
