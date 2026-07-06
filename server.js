@@ -7,15 +7,8 @@ dotenv.config();
 
 const app = express();
 
-// CORS configuration - MUST come before routes
-app.use(cors({
-  origin: '*',
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
-
-// Handle preflight requests
+// Simple CORS configuration
+app.use(cors());
 app.options('*', cors());
 
 app.use(express.json());
