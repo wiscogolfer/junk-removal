@@ -35,8 +35,7 @@ const FROM_EMAIL = process.env.FROM_EMAIL || 'San Tan Haul <quotes@santanhaul.co
 
 // SMS config
 const SMSMOBILEAPI_KEY = process.env.SMSMOBILEAPI_KEY;
-const SMSMOBILEAPI_URL = 'https://api.smsmobileapi.com/api/send';
-const SMS_FROM_NUMBER = process.env.SMS_FROM_NUMBER || '4142023822';
+const SMS_FROM_NUMBER = process.env.SMS_FROM_NUMBER || '+14142023822';
 
 // Send email via Resend
 async function sendEmail(to, subject, html) {
@@ -68,20 +67,22 @@ async function sendSMS(to, message) {
     return;
   }
   try {
-    const resp = await fetch(SMSMOBILEAPI_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${SMSMOBILEAPI_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        to: to,
-        message: message,
-        from: SMS_FROM_NUMBER
-      })
-    });
-    if (!resp.ok) {
-      console.error('SMSMobileAPI error:', resp.status, await resp.text());
+    // Format phone numbers in E.164 format (e.g., +14142023822)
+    const formattedTo = to.startsWith('+') ? to : `+1${to}`;
+    
+    // SMSMobileAPI uses query parameters
+    const url = new URL('https://api.smsmobileapi.com/sendsms/');
+    url.searchParams.append('apikey', SMSMOBILEAPI_KEY);
+    url.searchParams.append('recipients', formattedTo);
+    url.searchParams.append('message', message);
+    
+    const resp = await fetch(url.toString(), { method: 'GET' });
+    const data = await resp.text();
+    
+    if (!resp.ok || data.includes('"error"')) {
+      console.error('SMSMobileAPI error:', resp.status, data);
+    } else {
+      console.log('SMS sent to', formattedTo);
     }
   } catch (err) {
     console.error('SMS send failed:', err.message);
