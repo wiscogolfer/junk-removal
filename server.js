@@ -367,6 +367,21 @@ app.patch('/api/admin/jobs/:id', async (req, res) => {
   }
 });
 
+// Admin: Delete job
+app.delete('/api/admin/jobs/:id', async (req, res) => {
+  try {
+    const { error } = await supabase
+      .from('jobs')
+      .delete()
+      .eq('id', req.params.id);
+
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Admin: Update pricing
 app.post('/api/admin/pricing', async (req, res) => {
   try {
